@@ -1,3 +1,7 @@
+import Foundation
+import SafariServices
+import UIKit
+
 public class InngageSDK {
     
     public static let shared = InngageSDK()
@@ -33,9 +37,9 @@ public class InngageSDK {
     }
         
     /// Registra o subscriber com o token FCM no backend
-    public func registerSubscriber(token: String) {
+    public func registerSubscriber(token: String) async {
         properties.registration = token
-        subscriberService.subscribe(registration: token)
+        await subscriberService.subscribe(registration: token)
     }
     
     public func sendEvent(
@@ -47,8 +51,8 @@ public class InngageSDK {
             conversionEvent: Bool = false,
             conversionValue: Double = 0.0,
             conversionNotId: String? = nil
-        ) {
-            eventService.sendEvent(
+        ) async {
+            await eventService.sendEvent(
                 appToken: appToken,
                 identifier: identifier,
                 registration: registration,
@@ -60,12 +64,38 @@ public class InngageSDK {
             )
         }
     
-    public func updateStatusNotification(data: [AnyHashable: Any]){
+    public func updateStatusNotification(data: [AnyHashable: Any]) async {
         if let notId = data["notId"] as? String {
-            notificationService.updateNotificationStatus(
+            await notificationService.updateNotificationStatus(
                 appToken: properties.appToken,
                 notId: notId
             )
+        }
+        
+        guard
+            let type = data["type"] as? String,
+            let urlString = data["url"] as? String,
+            let url = URL(string: urlString)
+        else {
+            print("🔕 Sem URL ou tipo inválido no push")
+            return
+        }
+
+        DispatchQueue.main.async {
+            switch type {
+            case "deep":
+                UIApplication.shared.open(url, options: [:], completionHandler: nil)
+
+            case "inapp":
+                if let topVC = UIApplication.shared.keyWindow?.rootViewController {
+                    let safariVC = SFSafariViewController(url: url)
+                    safariVC.modalPresentationStyle = .formSheet
+                    topVC.present(safariVC, animated: true, completion: nil)
+                }
+
+            default:
+                print("⚠️ Tipo de navegação desconhecido: \(type)")
+            }
         }
     }
 }

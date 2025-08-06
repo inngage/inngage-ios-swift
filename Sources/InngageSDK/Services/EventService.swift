@@ -17,7 +17,7 @@ public class EventService {
         conversionEvent: Bool = false,
         conversionValue: Double = 0.0,
         conversionNotId: String? = nil
-    ) {
+    ) async {
         let props = InngageProperties.shared
         
         let event = Event(
@@ -30,13 +30,10 @@ public class EventService {
             conversion_notid: conversionNotId ?? ""
         )
         
-        apiService.sendEventRequest(event: event) { result in
-            switch result {
-            case .success:
-                InngageLogger.log("✅ Send event successful")
-            case .failure(let error):
-                InngageLogger.log("❌ Failed to send event: \(error)")
-            }
+        do {
+            try await apiService.sendEventRequest(event: event)
+        } catch {
+            InngageLogger.log("❌ Failed to send event: \(error)")
         }
     }
 }

@@ -8,20 +8,17 @@ public class NotificationService {
         self.apiService = apiService
     }
     
-    public func updateNotificationStatus(appToken: String, notId: String) {
+    public func updateNotificationStatus(appToken: String, notId: String) async {
         
         let notification = Notification(
             app_token: appToken,
             notId: notId
         )
         
-        apiService.sendNotificationRequest(notification: notification) { result in
-            switch result {
-            case .success:
-                InngageLogger.log("✅ Change status notification successful")
-            case .failure(let error):
-                InngageLogger.log("❌ Failed to update notification status: \(error)")
-            }
+        do {
+            try await apiService.sendNotificationRequest(notification: notification)
+        } catch {
+            InngageLogger.log("❌ Failed to update notification status: \(error)")
         }
     }
 }

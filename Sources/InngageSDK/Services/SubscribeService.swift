@@ -16,7 +16,7 @@ public class SubscriberService {
         self.apiService = apiService
     }
     
-    public func subscribe(registration: String?) {
+    public func subscribe(registration: String?) async {
         let props = InngageProperties.shared
         
         let osLocale: String
@@ -30,7 +30,7 @@ public class SubscriberService {
             osLanguage = Locale.preferredLanguages.first ?? ""
         }
         
-        let subscribe = Subscribe(
+        let subscribe = await Subscribe(
             app_token: props.appToken,
             identifier: props.identifier,
             registration: registration ?? "",
@@ -51,13 +51,10 @@ public class SubscriberService {
             long: props.longitude,
         )
         
-        apiService.sendSubscriptionRequest(subscribe: subscribe) { result in
-            switch result {
-            case .success:
-                InngageLogger.log("✅ Subscription successful")
-            case .failure(let error):
-                InngageLogger.log("❌ Failed to subscribe: \(error)")
-            }
+        do {
+            try await apiService.sendSubscriptionRequest(subscribe: subscribe)
+        } catch {
+            InngageLogger.log("❌ Failed to subscribe: \(error)")
         }
     }
 }
