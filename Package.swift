@@ -4,7 +4,7 @@ import PackageDescription
 let package = Package(
     name: "InngageSDK",
     platforms: [
-        .iOS(.v15)
+        .iOS(.v14)
     ],
     products: [
         .library(

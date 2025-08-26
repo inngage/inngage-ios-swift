@@ -237,7 +237,3 @@ struct InAppRichContent: View {
         isActive = false
     }
 }
-
-//#Preview {
-//    InAppRichContent()
-//}

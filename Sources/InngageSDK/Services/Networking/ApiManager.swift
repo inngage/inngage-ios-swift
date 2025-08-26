@@ -1,14 +1,14 @@
 import Foundation
 
-struct SubscribeRequest: Codable {
+struct SubscribeRequest: Encodable {
     let registerSubscriberRequest: Subscribe
 }
 
-struct EventRequest: Codable {
+struct EventRequest: Encodable {
     let newEventRequest: Event
 }
 
-struct NotificationRequest: Codable {
+struct NotificationRequest: Encodable {
     let notificationRequest: Notification
 }
 
@@ -21,7 +21,7 @@ enum APIEndpoint: String {
 public class ApiManager {
     private let baseURL = "https://api.inngage.com.br"
 
-    private func sendRequest<T: Codable>(
+    private func sendRequest<T: Encodable>(
         endpoint: APIEndpoint,
         method: String = "POST",
         body: T

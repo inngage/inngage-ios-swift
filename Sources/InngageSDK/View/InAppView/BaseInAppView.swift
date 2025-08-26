@@ -86,7 +86,9 @@ struct BaseInAppView<Content: View>: View {
                             .fontWeight(.medium)
                             .tint(Color(hex: titleFontColor))
                     } else {
-                        // Fallback on earlier versions
+                        Image(systemName: "xmark")
+                            .font(.system(size: 22, weight: .medium))
+                            .foregroundColor(Color(hex: titleFontColor))
                     }
                 }
             }

@@ -3,43 +3,34 @@ import SafariServices
 import UIKit
 
 public class InngageSDK {
-    
     public static let shared = InngageSDK()
-    
-    private let subscriberService = SubscriberService()
+    //private let subscriberService = SubscriberService()
     private let eventService = EventService()
     private let notificationService = NotificationService()
     
+    private let orchestrator = SubscriberOrchestrator()
+    
     private let properties = InngageProperties.shared
     
-    public func subscribe(
-            appToken: String,
-            identifier: String,
-            email: String? = nil,
-            phoneNumber: String? = nil,
-            customFields: [String: Any]? = nil,
-            requestGeolocation: Bool = false
-    ) {
-        if requestGeolocation {
-            let locationService = LocationService()
-            locationService.requestLocation { coordinate in
-                self.properties.latitude = String(format: "%.6f", coordinate.latitude)
-                self.properties.longitude = String(format: "%.6f", coordinate.longitude)
-                print("📍 Localização salva: \(self.properties.latitude ?? "") , \(self.properties.longitude ?? "")")
-            }
-        }
-        
-        properties.appToken = appToken
-        properties.identifier = identifier
-        properties.email = email
-        properties.phoneNumber = phoneNumber
-        properties.customFields = customFields
-    }
-        
-    /// Registra o subscriber com o token FCM no backend
-    public func registerSubscriber(token: String) async {
-        properties.registration = token
-        await subscriberService.subscribe(registration: token)
+    public func registerSubscriber(
+        appToken: String,
+        identifier: String,
+        fcmToken: String,
+        email: String? = nil,
+        phoneNumber: String? = nil,
+        customFields: [String: Any]? = nil,
+        requestGeolocation: Bool = false
+    ) async {
+        let input = SubscribeInput(
+            appToken: appToken,
+            identifier: identifier,
+            email: email,
+            phone: phoneNumber,
+            customFields: customFields,
+            requestGeolocation: requestGeolocation,
+            registrationToken: fcmToken
+        )
+        await orchestrator.register(input: input)
     }
     
     public func sendEvent(
@@ -64,7 +55,7 @@ public class InngageSDK {
             )
         }
     
-    public func updateStatusNotification(data: [AnyHashable: Any]) async {
+    public func handleNotificationInteraction(data: [AnyHashable: Any]) async {
         if let notId = data["notId"] as? String {
             await notificationService.updateNotificationStatus(
                 appToken: properties.appToken,
@@ -77,7 +68,7 @@ public class InngageSDK {
             let urlString = data["url"] as? String,
             let url = URL(string: urlString)
         else {
-            print("🔕 Sem URL ou tipo inválido no push")
+            InngageLogger.log("🔕 Sem URL ou tipo inválido no push")
             return
         }
 
@@ -94,7 +85,7 @@ public class InngageSDK {
                 }
 
             default:
-                print("⚠️ Tipo de navegação desconhecido: \(type)")
+                InngageLogger.log("⚠️ Tipo de navegação desconhecido: \(type)")
             }
         }
     }

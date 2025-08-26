@@ -25,6 +25,7 @@ public class EventService {
             identifier: identifier ?? props.identifier,
             registration: registration ?? props.registration,
             event_name: eventName,
+            event_values: eventValues,
             conversion_event: conversionEvent,
             conversion_value: conversionValue,
             conversion_notid: conversionNotId ?? ""

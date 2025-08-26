@@ -215,7 +215,9 @@ struct InAppBackgroundImage: View {
                             .fontWeight(.medium)
                             .tint(Color(hex: titleFontColor))
                     } else {
-                        // Fallback on earlier versions
+                        Image(systemName: "xmark")
+                            .font(.system(size: 22, weight: .medium))
+                            .foregroundColor(Color(hex: titleFontColor))
                     }
                 }
             }
@@ -235,7 +237,3 @@ struct InAppBackgroundImage: View {
         isActive = false
     }
 }
-
-//#Preview {
-//    InAppBackgroundImage()
-//}

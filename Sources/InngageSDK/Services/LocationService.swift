@@ -1,8 +1,9 @@
+import Foundation
 import CoreLocation
 
-public class LocationService: NSObject, CLLocationManagerDelegate {
+public final class LocationService: NSObject, CLLocationManagerDelegate {
     private let locationManager = CLLocationManager()
-    private var onLocationUpdate: ((CLLocationCoordinate2D) -> Void)?
+    private var continuation: CheckedContinuation<CLLocationCoordinate2D, Error>?
 
     public override init() {
         super.init()
@@ -10,26 +11,37 @@ public class LocationService: NSObject, CLLocationManagerDelegate {
         locationManager.desiredAccuracy = kCLLocationAccuracyBest
     }
 
-    public func requestLocation(completion: @escaping (CLLocationCoordinate2D) -> Void) {
-        self.onLocationUpdate = completion
-
-        let status = locationManager.authorizationStatus
-        if status == .notDetermined {
+    public func getCurrentLocation() async throws -> CLLocationCoordinate2D {
+        let authStatus = locationManager.authorizationStatus
+        if authStatus == .notDetermined {
             locationManager.requestWhenInUseAuthorization()
-        } else if status == .authorizedWhenInUse || status == .authorizedAlways {
+        } else if authStatus == .denied || authStatus == .restricted {
+            throw LocationError.permissionDenied
+        }
+
+        return try await withCheckedThrowingContinuation { continuation in
+            self.continuation = continuation
             locationManager.requestLocation()
-        } else {
-            InngageLogger.log("❌ Localização não autorizada")
         }
     }
 
+    // MARK: - CLLocationManagerDelegate
+
     public func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        guard let location = locations.first else { return }
-        onLocationUpdate?(location.coordinate)
-        onLocationUpdate = nil
+        if let location = locations.first {
+            continuation?.resume(returning: location.coordinate)
+            continuation = nil
+        }
     }
 
     public func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        InngageLogger.log("❌ Falha ao obter localização: \(error.localizedDescription)")
+        continuation?.resume(throwing: error)
+        continuation = nil
+    }
+
+    // MARK: - Errors
+
+    public enum LocationError: Error {
+        case permissionDenied
     }
 }
