@@ -1,14 +1,14 @@
 import Foundation
 
-public class EventService {
-    
+class EventService {
+
     private let apiService: ApiManager
-    
+
     init(apiService: ApiManager = ApiManager()) {
         self.apiService = apiService
     }
-    
-    public func sendEvent(
+
+    func sendEvent(
         appToken: String,
         identifier: String? = nil,
         registration: String? = nil,
@@ -17,9 +17,9 @@ public class EventService {
         conversionEvent: Bool = false,
         conversionValue: Double = 0.0,
         conversionNotId: String? = nil
-    ) async {
+    ) async throws {
         let props = InngageProperties.shared
-        
+
         let event = Event(
             app_token: appToken,
             identifier: identifier ?? props.identifier,
@@ -30,11 +30,12 @@ public class EventService {
             conversion_value: conversionValue,
             conversion_notid: conversionNotId ?? ""
         )
-        
+
         do {
             try await apiService.sendEventRequest(event: event)
         } catch {
             InngageLogger.log("❌ Failed to send event: \(error)")
+            throw error
         }
     }
 }

@@ -4,14 +4,14 @@ import UIKit
 
 public class InngageSDK {
     public static let shared = InngageSDK()
-    //private let subscriberService = SubscriberService()
+
     private let eventService = EventService()
     private let notificationService = NotificationService()
-    
+
     private let orchestrator = SubscriberOrchestrator()
-    
+
     private let properties = InngageProperties.shared
-    
+
     public func registerSubscriber(
         appToken: String,
         identifier: String,
@@ -20,7 +20,16 @@ public class InngageSDK {
         phoneNumber: String? = nil,
         customFields: [String: Any]? = nil,
         requestGeolocation: Bool = false
-    ) async {
+    ) async throws {
+        // Fonte única do estado da sessão — usada por sendEvent (fallback) e
+        // handleNotificationInteraction (reporte de abertura).
+        properties.appToken = appToken
+        properties.identifier = identifier
+        properties.registration = fcmToken
+        properties.email = email
+        properties.phoneNumber = phoneNumber
+        properties.customFields = customFields
+
         let input = SubscribeInput(
             appToken: appToken,
             identifier: identifier,
@@ -30,9 +39,9 @@ public class InngageSDK {
             requestGeolocation: requestGeolocation,
             registrationToken: fcmToken
         )
-        await orchestrator.register(input: input)
+        try await orchestrator.register(input: input)
     }
-    
+
     public func sendEvent(
             eventName: String,
             appToken: String,
@@ -42,8 +51,8 @@ public class InngageSDK {
             conversionEvent: Bool = false,
             conversionValue: Double = 0.0,
             conversionNotId: String? = nil
-        ) async {
-            await eventService.sendEvent(
+        ) async throws {
+            try await eventService.sendEvent(
                 appToken: appToken,
                 identifier: identifier,
                 registration: registration,
@@ -54,15 +63,15 @@ public class InngageSDK {
                 conversionNotId: conversionNotId
             )
         }
-    
-    public func handleNotificationInteraction(data: [AnyHashable: Any]) async {
+
+    public func handleNotificationInteraction(data: [AnyHashable: Any]) async throws {
         if let notId = data["notId"] as? String {
-            await notificationService.updateNotificationStatus(
+            try await notificationService.updateNotificationStatus(
                 appToken: properties.appToken,
                 notId: notId
             )
         }
-        
+
         guard
             let type = data["type"] as? String,
             let urlString = data["url"] as? String,
@@ -78,7 +87,7 @@ public class InngageSDK {
                 UIApplication.shared.open(url, options: [:], completionHandler: nil)
 
             case "inapp":
-                if let topVC = UIApplication.shared.keyWindow?.rootViewController {
+                if let topVC = UIApplication.shared.topViewController() {
                     let safariVC = SFSafariViewController(url: url)
                     safariVC.modalPresentationStyle = .formSheet
                     topVC.present(safariVC, animated: true, completion: nil)

@@ -1,17 +1,17 @@
 import Foundation
 import CoreLocation
 
-public final class LocationService: NSObject, CLLocationManagerDelegate {
+final class LocationService: NSObject, CLLocationManagerDelegate {
     private let locationManager = CLLocationManager()
     private var continuation: CheckedContinuation<CLLocationCoordinate2D, Error>?
 
-    public override init() {
+    override init() {
         super.init()
         locationManager.delegate = self
         locationManager.desiredAccuracy = kCLLocationAccuracyBest
     }
 
-    public func getCurrentLocation() async throws -> CLLocationCoordinate2D {
+    func getCurrentLocation() async throws -> CLLocationCoordinate2D {
         let authStatus = locationManager.authorizationStatus
         if authStatus == .notDetermined {
             locationManager.requestWhenInUseAuthorization()
@@ -27,21 +27,21 @@ public final class LocationService: NSObject, CLLocationManagerDelegate {
 
     // MARK: - CLLocationManagerDelegate
 
-    public func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         if let location = locations.first {
             continuation?.resume(returning: location.coordinate)
             continuation = nil
         }
     }
 
-    public func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
         continuation?.resume(throwing: error)
         continuation = nil
     }
 
     // MARK: - Errors
 
-    public enum LocationError: Error {
+    enum LocationError: Error {
         case permissionDenied
     }
 }

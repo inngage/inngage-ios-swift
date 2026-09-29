@@ -6,7 +6,7 @@
 
 ## 📲 Requisitos
 
-- iOS 15.0+
+- iOS 14.0+
 - Swift 5.7+
 - Xcode 14+
 - Firebase Messaging
