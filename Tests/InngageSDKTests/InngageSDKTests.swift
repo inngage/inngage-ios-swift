@@ -53,6 +53,60 @@ final class InngageSDKTests: XCTestCase {
         XCTAssertEqual(api.captured?.sdk, InngageVersion.current)
     }
 
+    // MARK: - InngageSession (item 8 / item 1)
+
+    /// Cria um `UserDefaults` isolado para não vazar estado entre testes.
+    private func makeIsolatedDefaults(_ suite: String) -> UserDefaults {
+        let defaults = UserDefaults(suiteName: suite)!
+        defaults.removePersistentDomain(forName: suite)
+        return defaults
+    }
+
+    /// O identifier anônimo é gerado uma vez e permanece estável entre chamadas.
+    func testAnonymousIdentifierIsStable() async {
+        let defaults = makeIsolatedDefaults("inngage.tests.anon")
+        let session = InngageSession(defaults: defaults)
+        let first = await session.anonymousIdentifier()
+        let second = await session.anonymousIdentifier()
+        XCTAssertFalse(first.isEmpty)
+        XCTAssertEqual(first, second)
+    }
+
+    /// `resolvedIdentifier` usa o valor do app quando presente e recorre ao
+    /// anônimo quando vazio/nil (subscribe nunca vai com identifier vazio).
+    func testResolvedIdentifierFallsBackToAnonymous() async {
+        let defaults = makeIsolatedDefaults("inngage.tests.resolve")
+        let session = InngageSession(defaults: defaults)
+
+        let provided = await session.resolvedIdentifier("user@example.com")
+        XCTAssertEqual(provided, "user@example.com")
+
+        let anon = await session.anonymousIdentifier()
+        let resolvedNil = await session.resolvedIdentifier(nil)
+        let resolvedEmpty = await session.resolvedIdentifier("")
+        let resolvedBlank = await session.resolvedIdentifier("   ")
+        XCTAssertEqual(resolvedNil, anon)
+        XCTAssertEqual(resolvedEmpty, anon)
+        XCTAssertEqual(resolvedBlank, anon)
+    }
+
+    /// O estado persiste: uma nova instância sobre o mesmo `UserDefaults`
+    /// relê os valores (prova o fix de cold start — item 1).
+    func testSessionPersistsAcrossInstances() async {
+        let suite = "inngage.tests.persist"
+        let defaults = makeIsolatedDefaults(suite)
+        let session = InngageSession(defaults: defaults)
+        await session.update(appToken: "app", identifier: "u", registration: "fcm")
+
+        let reloaded = InngageSession(defaults: defaults)
+        let appToken = await reloaded.appToken
+        let identifier = await reloaded.identifier
+        let registration = await reloaded.registration
+        XCTAssertEqual(appToken, "app")
+        XCTAssertEqual(identifier, "u")
+        XCTAssertEqual(registration, "fcm")
+    }
+
     /// Item 10: encoding de custom values continua correto após extrair o DynamicKey.
     func testEventEncodesCustomValues() throws {
         let event = Event(
