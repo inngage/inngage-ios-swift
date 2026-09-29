@@ -18,12 +18,18 @@ class EventService {
         conversionValue: Double = 0.0,
         conversionNotId: String? = nil
     ) async throws {
-        let props = InngageProperties.shared
+        let session = InngageSession.shared
+        // Fallback para o estado de sessão quando o integrador não informa
+        // identifier/registration; se nem a sessão os tem, usa o identifier anônimo.
+        let sessionIdentifier = await session.identifier
+        let sessionRegistration = await session.registration
+        let resolvedIdentifier = await session.resolvedIdentifier(identifier ?? sessionIdentifier)
+        let resolvedRegistration = registration ?? sessionRegistration
 
         let event = Event(
             app_token: appToken,
-            identifier: identifier ?? props.identifier,
-            registration: registration ?? props.registration,
+            identifier: resolvedIdentifier,
+            registration: resolvedRegistration,
             event_name: eventName,
             event_values: eventValues,
             conversion_event: conversionEvent,

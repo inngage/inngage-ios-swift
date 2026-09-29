@@ -10,25 +10,25 @@ public class InngageSDK {
 
     private let orchestrator = SubscriberOrchestrator()
 
-    private let properties = InngageProperties.shared
+    private let session = InngageSession.shared
 
     public func registerSubscriber(
         appToken: String,
-        identifier: String,
+        identifier: String? = nil,
         fcmToken: String,
         email: String? = nil,
         phoneNumber: String? = nil,
         customFields: [String: Any]? = nil,
         requestGeolocation: Bool = false
     ) async throws {
+        // O identifier é opcional para o integrador, mas a API de subscription
+        // exige um valor: se não vier preenchido, cai no identifier anônimo estável.
+        let identifier = await session.resolvedIdentifier(identifier)
+
         // Fonte única do estado da sessão — usada por sendEvent (fallback) e
-        // handleNotificationInteraction (reporte de abertura).
-        properties.appToken = appToken
-        properties.identifier = identifier
-        properties.registration = fcmToken
-        properties.email = email
-        properties.phoneNumber = phoneNumber
-        properties.customFields = customFields
+        // handleNotificationInteraction (reporte de abertura). Persistida para
+        // sobreviver ao cold start.
+        await session.update(appToken: appToken, identifier: identifier, registration: fcmToken)
 
         let input = SubscribeInput(
             appToken: appToken,
@@ -67,7 +67,7 @@ public class InngageSDK {
     public func handleNotificationInteraction(data: [AnyHashable: Any]) async throws {
         if let notId = data["notId"] as? String {
             try await notificationService.updateNotificationStatus(
-                appToken: properties.appToken,
+                appToken: await session.appToken,
                 notId: notId
             )
         }

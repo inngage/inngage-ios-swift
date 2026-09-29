@@ -18,7 +18,7 @@
 		0D4883CD2E2AE71F00A2E039 /* InngageInApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D4883A22E2AE71F00A2E039 /* InngageInApp.swift */; };
 		0D4883CE2E2AE71F00A2E039 /* InApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D4883A62E2AE71F00A2E039 /* InApp.swift */; };
 		0D4883CF2E2AE71F00A2E039 /* InngageLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D4883B62E2AE71F00A2E039 /* InngageLogger.swift */; };
-		0D4883D02E2AE71F00A2E039 /* InngageProperties.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D4883B72E2AE71F00A2E039 /* InngageProperties.swift */; };
+		0D4883D02E2AE71F00A2E039 /* InngageSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D4883B72E2AE71F00A2E039 /* InngageSession.swift */; };
 		0D4883D12E2AE71F00A2E039 /* InngageSDK.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D4883A32E2AE71F00A2E039 /* InngageSDK.swift */; };
 		0D4883D22E2AE71F00A2E039 /* SubscribeService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D4883B02E2AE71F00A2E039 /* SubscribeService.swift */; };
 		0D4883D32E2AE71F00A2E039 /* ApiManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D4883AB2E2AE71F00A2E039 /* ApiManager.swift */; };
@@ -66,7 +66,7 @@
 		0D4883B42E2AE71F00A2E039 /* InngageAnalytics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InngageAnalytics.swift; sourceTree = "<group>"; };
 		0D4883B52E2AE71F00A2E039 /* InngageImageHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InngageImageHelper.swift; sourceTree = "<group>"; };
 		0D4883B62E2AE71F00A2E039 /* InngageLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InngageLogger.swift; sourceTree = "<group>"; };
-		0D4883B72E2AE71F00A2E039 /* InngageProperties.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InngageProperties.swift; sourceTree = "<group>"; };
+		0D4883B72E2AE71F00A2E039 /* InngageSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InngageSession.swift; sourceTree = "<group>"; };
 		0D4883B92E2AE71F00A2E039 /* Button.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Button.swift; sourceTree = "<group>"; };
 		0D4883BA2E2AE71F00A2E039 /* Carrousel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Carrousel.swift; sourceTree = "<group>"; };
 		0D4883BC2E2AE71F00A2E039 /* BaseInAppView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BaseInAppView.swift; sourceTree = "<group>"; };
@@ -150,7 +150,7 @@
 				0D4883B42E2AE71F00A2E039 /* InngageAnalytics.swift */,
 				0D4883B52E2AE71F00A2E039 /* InngageImageHelper.swift */,
 				0D4883B62E2AE71F00A2E039 /* InngageLogger.swift */,
-				0D4883B72E2AE71F00A2E039 /* InngageProperties.swift */,
+				0D4883B72E2AE71F00A2E039 /* InngageSession.swift */,
 			);
 			path = Utils;
 			sourceTree = "<group>";
@@ -362,7 +362,7 @@
 				0D4883CD2E2AE71F00A2E039 /* InngageInApp.swift in Sources */,
 				0D4883CE2E2AE71F00A2E039 /* InApp.swift in Sources */,
 				0D4883CF2E2AE71F00A2E039 /* InngageLogger.swift in Sources */,
-				0D4883D02E2AE71F00A2E039 /* InngageProperties.swift in Sources */,
+				0D4883D02E2AE71F00A2E039 /* InngageSession.swift in Sources */,
 				0D4883D12E2AE71F00A2E039 /* InngageSDK.swift in Sources */,
 				0D4883D22E2AE71F00A2E039 /* SubscribeService.swift in Sources */,
 				0D4883D32E2AE71F00A2E039 /* ApiManager.swift in Sources */,
