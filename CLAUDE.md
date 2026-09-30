@@ -1,4 +1,4 @@
-# CLAUDE.md — InngageSDK (package Swift 2.0.0)
+# CLAUDE.md — InngageSDK (package Swift 2.1.0)
 
 Guia para agentes de IA (e desenvolvedores) trabalhando no **código-fonte da SDK**. Leia antes de alterar qualquer arquivo. Este é o local da **lógica de negócio** da Inngage para iOS — o app de exemplo (`InngageSwift`, no diretório irmão `../InngageSwift`) apenas a consome via `XCLocalSwiftPackageReference "../inngage-ios-swift-2.0.0"`.
 
@@ -14,7 +14,7 @@ Guia para agentes de IA (e desenvolvedores) trabalhando no **código-fonte da SD
 
 **Está fora do escopo da SDK:** obter o token FCM/APNs (o app host obtém e passa via `registerSubscriber(fcmToken:)`), pedir permissão de push, arquitetura do app host, telas de demonstração. A SDK é **agnóstica de Firebase** — não adicionar dependência do Firebase aqui.
 
-Nomenclatura: a pasta é `inngage-ios-swift-2.0.0`, o produto/target é `InngageSDK` e a versão reportada ao backend vem de `InngageVersion.current` (`"2.0.0"`).
+Nomenclatura: a pasta é `inngage-ios-swift-2.0.0` (nome histórico), o produto/target é `InngageSDK` e a versão reportada ao backend vem de `InngageVersion.current` (`"2.1.0"`).
 
 ## 2. Stack e comandos
 
@@ -69,6 +69,7 @@ Services/    Casos de uso (internal)
   SubscriberOrchestrator.swift  -> monta o payload de subscribe (DI via protocolos)
   EventService.swift            -> envio de evento (fallback de identifier/registration via sessão)
   NotificationService.swift     -> reporte de status de notificação
+  NotificationLinkResolver.swift -> decide a ação para o link do push (deep/inapp/bloqueado), função pura
   LocationService.swift         -> geolocalização opt-in (CoreLocation, async)
   SubscribeService.swift        -> TOMBSTONE (só comentário; código legado em `_to_delete/`)
   Networking/ApiManager.swift   -> camada HTTP única (URLSession, JSON, mapeia InngageError)
@@ -103,7 +104,7 @@ O design com `Abstractions` + `Providers` é **protocol-oriented com injeção d
 ```swift
 // Core/InngageSDK.swift
 public class InngageSDK { public static let shared: InngageSDK }
-public func registerSubscriber(appToken:identifier:fcmToken:email:phoneNumber:customFields:requestGeolocation:) async throws
+public func registerSubscriber(appToken:identifier:fcmToken:email:phoneNumber:customFields:requestGeolocation:blockDeepLink:) async throws
 public func sendEvent(eventName:appToken:identifier:registration:eventValues:conversionEvent:conversionValue:conversionNotId:) async throws
 public func handleNotificationInteraction(data: [AnyHashable: Any]) async throws
 
@@ -119,7 +120,7 @@ public class InngageImageHelper { public static func attachment(from:completion:
 public struct AnyCodable: Codable
 ```
 
-Tudo o mais é `internal` — inclusive `EventService`, `NotificationService`, `SubscriberOrchestrator`, `SubscribeInput`, `LocationService`, `ApiManager`, `InngageSession`, os DTOs e as views internas. (`InAppRichContent` tem `public init` sobre um `struct` internal — inofensivo, mas não é API pública.)
+Tudo o mais é `internal` — inclusive `EventService`, `NotificationService`, `NotificationLinkResolver`, `SubscriberOrchestrator`, `SubscribeInput`, `LocationService`, `ApiManager`, `InngageSession`, os DTOs e as views internas. (`InAppRichContent` tem `public init` sobre um `struct` internal — inofensivo, mas não é API pública.)
 
 ### Regras de compatibilidade
 
@@ -129,7 +130,8 @@ Tudo o mais é `internal` — inclusive `EventService`, `NotificationService`, `
 - **Erros são propagados** (`async throws` com `InngageError`), nunca engolidos. Novos casos de erro só podem ser adicionados em `InngageError` com nota de versão (integradores podem usar `switch` exaustivo).
 - **Payloads do backend** (`Subscribe`, `Event`, `Notification` e wrappers `registerSubscriberRequest`, `newEventRequest`, `notificationRequest`) são contrato com `api.inngage.com.br`. Nomes de campo em snake_case são intencionais; não renomear sem alinhamento com o backend. Testes de encoding (`testEventEncodesCustomValues`) protegem isso — adicionar equivalentes ao mexer em DTOs.
 - **Formato do payload de push/in-app** consumido por `handleNotificationInteraction` e `InngageInApp` (`notId`, `type` ∈ {`deep`, `inapp`}, `url`, `additional_data.rich_content`, `background_image`) é definido pela plataforma Inngage; tratar chaves ausentes de forma tolerante, nunca com crash.
-- **Chaves de `UserDefaults`** (`inngage.session.*`) são persistidas no device do usuário final; renomear exige migração.
+- **Chaves de `UserDefaults`** (`inngage.session.*`: `appToken`, `identifier`, `registration`, `anonymousId`, `blockDeepLink`) são persistidas no device do usuário final; renomear exige migração.
+- **Semântica do `blockDeepLink`** (`registerSubscriber`, default `false`): persistido na sessão; reflete sempre o **último** subscribe; quando `true`, `handleNotificationInteraction` não abre `deep` nem `inapp`, mas continua reportando a abertura (`notId`). Não afeta os botões das in-app messages.
 - **Versionamento:** SemVer. Mudança incompatível → major; API nova compatível → minor; correção → patch. Atualizar `InngageVersion.current` e a docc na mesma alteração.
 
 ## 5. Segurança e configuração
@@ -139,7 +141,7 @@ Tudo o mais é `internal` — inclusive `EventService`, `NotificationService`, `
 - **Logs** ficam desligados por padrão. `ApiManager` loga request/response completos quando habilitado — isso inclui `appToken`, e-mail, telefone e `customFields`. Não habilitar logging por padrão; não adicionar logs de payload fora do `ApiManager`.
 - **Geolocalização** é opt-in (`requestGeolocation: true`) e falha silenciosa é aceitável (registro segue sem lat/long). A SDK não declara `NSLocationWhenInUseUsageDescription` — é responsabilidade do app host; documentar na docc.
 - **Rede:** HTTPS fixo; sem cabeçalho de autenticação hoje (ver backlog 9). Qualquer adição de auth passa por `ApiManager` e por revisão de segurança.
-- **URLs recebidas em push** (`deep`/`inapp`) são abertas via `UIApplication.open` / `SFSafariViewController`. Não executar JavaScript, não usar `WKWebView` com bridge, não confiar em `type` desconhecido (hoje cai em `default` com log).
+- **URLs recebidas em push** (`deep`/`inapp`) são abertas via `UIApplication.open` / `SFSafariViewController`, salvo `blockDeepLink == true` na sessão (a SDK então não abre nada e apenas loga). Não executar JavaScript, não usar `WKWebView` com bridge, não confiar em `type` desconhecido (cai em `.none` no `NotificationLinkResolver`, com log).
 - **Arquivos gerados/locais que não devem ser versionados:** `.build/`, `.swiftpm/xcode/xcuserdata/`, `InngageSDK.xcodeproj/xcuserdata/`, `.DS_Store`, `_to_delete/`. O repositório ainda **não tem `.gitignore`** (ver backlog 14) — verificar o diff staged manualmente antes de cada commit.
 
 ## 6. Fluxos críticos
@@ -147,7 +149,7 @@ Tudo o mais é `internal` — inclusive `EventService`, `NotificationService`, `
 Alterações que toquem estes fluxos exigem testes direcionados e validação no app de exemplo.
 
 1. **Registro de assinante**
-   `InngageSDK.registerSubscriber(...)` → `InngageSession.resolvedIdentifier` (fallback anônimo) → `InngageSession.update(appToken:identifier:registration:)` (persiste) → `SubscribeInput` → `SubscriberOrchestrator.register` → (opcional `LocationService.getCurrentLocation`) → `Subscribe` (com `sdk = InngageVersion.current`, device/app info via providers, `DateTracker` install/update ISO8601) → `APIClient.postSubscription` → `ApiManager.sendSubscriptionRequest` → `POST /v1/subscription/`.
+   `InngageSDK.registerSubscriber(...)` → `InngageSession.resolvedIdentifier` (fallback anônimo) → `InngageSession.update(appToken:identifier:registration:blockDeepLink:)` (persiste) → `SubscribeInput` → `SubscriberOrchestrator.register` → (opcional `LocationService.getCurrentLocation`) → `Subscribe` (com `sdk = InngageVersion.current`, device/app info via providers, `DateTracker` install/update ISO8601) → `APIClient.postSubscription` → `ApiManager.sendSubscriptionRequest` → `POST /v1/subscription/`.
    Riscos: identifier vazio, versão errada no payload, sessão não persistida (quebra o fluxo 3 após cold start).
 
 2. **Envio de evento**
@@ -155,15 +157,15 @@ Alterações que toquem estes fluxos exigem testes direcionados e validação no
    Riscos: encoding de `[String: Any]`, evento de conversão sem `conversion_notid`.
 
 3. **Interação com notificação (tap / abertura)**
-   `handleNotificationInteraction(data:)` → se `notId`: `NotificationService.updateNotificationStatus(appToken: session.appToken, notId:)` → `POST /v1/notification/`; depois roteia `type`/`url`: `deep` → `UIApplication.open`; `inapp` → `SFSafariViewController` no top VC (via `connectedScenes`).
-   Riscos: `appToken` vazio na sessão (cold start sem registro prévio), apresentação fora da main thread, top VC `nil`.
+   `handleNotificationInteraction(data:)` → se `notId`: `NotificationService.updateNotificationStatus(appToken: session.appToken, notId:)` → `POST /v1/notification/`; depois `NotificationLinkResolver.resolve(type:urlString:blockDeepLink: session.blockDeepLink)` → `.openExternal` (`deep` → `UIApplication.open`), `.openInApp` (`inapp` → `SFSafariViewController` no top VC via `connectedScenes`), `.blocked` (só log) ou `.none` (só log).
+   Riscos: `appToken` vazio na sessão (cold start sem registro prévio), apresentação fora da main thread, top VC `nil`, bloqueio ignorado se a flag não estiver persistida. Coberto por `testLinkResolver*`.
 
 4. **In-app message (SwiftUI)**
    `InngageInApp(data:isShowing:...)` → `parseAdditionalData` → escolhe `InAppRichContent` (carrossel) ou `InAppNormal`/`InAppBackgroundImage` → imagens via `SDWebImageSwiftUI` → callbacks de botão e `onDismissed`.
    Riscos: payload malformado, cores hex inválidas (`ColorHex`), regressão visual sem teste automatizado (validar no app de exemplo).
 
 5. **Sessão e identidade**
-   `InngageSession` (actor) — única fonte de `appToken`/`identifier`/`registration`/`anonymousId`, persistida em `UserDefaults`. Coberta por `testAnonymousIdentifierIsStable`, `testResolvedIdentifierFallsBackToAnonymous`, `testSessionPersistsAcrossInstances`.
+   `InngageSession` (actor) — única fonte de `appToken`/`identifier`/`registration`/`anonymousId`/`blockDeepLink`, persistida em `UserDefaults`. Coberta por `testAnonymousIdentifierIsStable`, `testResolvedIdentifierFallsBackToAnonymous`, `testSessionPersistsAcrossInstances`, `testBlockDeepLink*`.
 
 ## 7. Processo de trabalho
 
@@ -172,7 +174,7 @@ Alterações que toquem estes fluxos exigem testes direcionados e validação no
 - **Comentários e docs:** manter os comentários existentes que explicam decisões (identifier anônimo, persistência, isolamento). Atualizar a docc (`InngageSDK.docc/InngageSDK.md`) sempre que a API pública ou o fluxo de integração mudar.
 - **Testes:** XCTest, com dobles injetados pelos protocolos (`FailingAPIClient`, `CapturingAPIClient`) e `UserDefaults(suiteName:)` isolado por teste. Cada correção de bug ganha um teste que falharia antes. Não testar rede real.
 - **Git:** branches `feat/<slug>`, `fix/<slug>`, `chore/<slug>` a partir de `release` sincronizada; Conventional Commits (`feat(session): ...`, `fix(api): ...`, `test(orchestrator): ...`, `docs(claude): ...`, `chore(repo): ...`); `git add` com caminhos explícitos, nunca `git add .`; sem `--force`, sem amend/rebase/reset/stash automáticos. PRs de `<branch>` → `release` no GitHub.
-- **Estado atual do repositório (set/2026):** só existe a branch `main` local, sem remote `origin` e sem branch `release`. Antes da primeira demanda, o fluxo de gates orienta a criar `release` a partir de `main` e configurar o remote — cada passo com aprovação específica. Há alterações não commitadas (Rodada 2 do backlog); não descartá-las.
+- **Estado atual do repositório (set/2026):** remote `origin` = `https://github.com/inngage/inngage-ios-swift`. A branch `release` (publicada) parte da tag `2.0.0` e contém as Rodadas 1 e 2 commitadas; é a base de todas as branches de trabalho e destino dos PRs. A branch `main` **local** (`Initial Commit`, sem pai) é um resíduo anterior à reconexão com o remoto — não usar como base; `origin/main` continua na tag `2.0.0` até o próximo release.
 - **Limite de mudança:** alterar somente o que a demanda pede. Refatorações oportunistas e itens do backlog entram como demanda própria.
 - **Relação com o app de exemplo:** qualquer mudança de API pública exige atualizar `../InngageSwift` (que consome este package localmente) e confirmar que ele compila. O exemplo nunca é fonte de verdade da SDK.
 
