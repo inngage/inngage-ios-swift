@@ -2,17 +2,17 @@ import SwiftUI
 
 public struct InngageInApp: View {
     @Binding var isShowing: Bool
-    
+
     var data: [String: Any]?
     var actionButtonRight: () -> Void = {}
     var hasActionButtonRight: Bool = false
     var actionButtonLeft: () -> Void = {}
     var hasActionButtonLeft: Bool = false
     var onDismissed: () -> Void = {}
-    
+
     @State private var carousel: Int = 0
     @State private var backgroundImage: String = ""
-        
+
     public init(
         data: [String: Any],
         isShowing: Binding<Bool>,
@@ -27,16 +27,16 @@ public struct InngageInApp: View {
             self.hasActionButtonLeft = hasActionButtonLeft
             self.hasActionButtonRight = hasActionButtonRight
             self.onDismissed = onDismissed
-            
+
             if let additionalData = parseAdditionalData(from: data),
                let richContent = additionalData["rich_content"] as? [String: Any] {
                 self._backgroundImage = State(initialValue: additionalData["background_image"] as? String ?? "")
                 self._carousel = State(initialValue: richContent["carousel"] as? Int ?? 0)
             }
-            
+
             self._isShowing = isShowing
     }
-    
+
     public var body: some View {
         Group {
             if isShowing {
@@ -49,7 +49,7 @@ public struct InngageInApp: View {
             }
         }
     }
-    
+
     @ViewBuilder
     private func contentView() -> some View {
         if carousel == 1 {
@@ -77,12 +77,4 @@ public struct InngageInApp: View {
             )
         }
     }
-    
-    private func handleDeepLink(){
-        print("Está utilizando deep link")
-    }
 }
-
-//#Preview {
-//    InAppView()
-//}

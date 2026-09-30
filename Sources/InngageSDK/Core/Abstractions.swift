@@ -20,9 +20,3 @@ protocol DeviceInfoProvider {
     var osLocale: String { get }
     var osLanguage: String { get }
 }
-
-protocol PayloadStore {
-    func savePendingSubscribe(_ payload: Subscribe) throws
-    func loadPendingSubscribe() throws -> Subscribe?
-    func clearPendingSubscribe() throws
-}

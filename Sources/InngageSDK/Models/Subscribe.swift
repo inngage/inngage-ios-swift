@@ -20,10 +20,10 @@ struct Subscribe: Encodable {
     var email: String
     var lat: String?
     var long: String?
-    
+
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-        
+
         try container.encode(app_token, forKey: .app_token)
         try container.encode(identifier, forKey: .identifier)
         try container.encode(registration, forKey: .registration)
@@ -42,7 +42,7 @@ struct Subscribe: Encodable {
         try container.encode(email, forKey: .email)
         try container.encode(lat, forKey: .lat)
         try container.encode(long, forKey: .long)
-        
+
         if let fields = custom_field {
             var custom = container.nestedContainer(keyedBy: DynamicKey.self, forKey: .custom_field)
             for (key, value) in fields {
@@ -73,18 +73,11 @@ struct Subscribe: Encodable {
             }
         }
     }
-    
+
     private enum CodingKeys: String, CodingKey {
         case app_token, identifier, registration, platform, sdk,
              device_model, device_manufacturer, os_locale, os_language,
              os_version, app_version, app_installed_in, app_updated_in,
              uuid, custom_field, phone_number, email, lat, long
     }
-}
-
-private struct DynamicKey: CodingKey {
-    var stringValue: String
-    init?(stringValue: String) { self.stringValue = stringValue }
-    var intValue: Int? { nil }
-    init?(intValue: Int) { nil }
 }

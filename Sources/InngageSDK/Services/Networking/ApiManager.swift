@@ -18,7 +18,7 @@ enum APIEndpoint: String {
     case event = "/v1/events/newEvent/"
 }
 
-public class ApiManager {
+class ApiManager {
     private let baseURL = "https://api.inngage.com.br"
 
     private func sendRequest<T: Encodable>(
@@ -27,9 +27,9 @@ public class ApiManager {
         body: T
     ) async throws -> Data {
         guard let url = URL(string: baseURL + endpoint.rawValue) else {
-            throw URLError(.badURL)
+            throw InngageError.badURL
         }
-        
+
         var urlRequest = URLRequest(url: url)
         urlRequest.httpMethod = method
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -42,38 +42,39 @@ public class ApiManager {
             InngageLogger.log("➡️ [API Request] Body: \(jsonString)")
         }
 
-        let (data, response) = try await URLSession.shared.data(for: urlRequest)
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await URLSession.shared.data(for: urlRequest)
+        } catch {
+            throw InngageError.network(error)
+        }
 
         guard let httpResponse = response as? HTTPURLResponse else {
-            throw URLError(.badServerResponse)
+            throw InngageError.invalidResponse(status: -1, body: nil)
         }
 
         let responseString = String(data: data, encoding: .utf8) ?? "Unable to decode response"
         InngageLogger.log("✅ [API Response] Status code: \(httpResponse.statusCode)")
         InngageLogger.log("✅ [API Response] Body: \(responseString)")
 
-        if httpResponse.statusCode == 200 {
-            return data
-        } else {
-            let errorDescription = String(data: data, encoding: .utf8) ?? "Unknown error"
-            throw NSError(
-                domain: "HTTPError",
-                code: httpResponse.statusCode,
-                userInfo: [NSLocalizedDescriptionKey: errorDescription]
-            )
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw InngageError.invalidResponse(status: httpResponse.statusCode, body: responseString)
         }
+
+        return data
     }
 
     func sendSubscriptionRequest(subscribe: Subscribe) async throws {
         let subscribeRequest = SubscribeRequest(registerSubscriberRequest: subscribe)
         _ = try await sendRequest(endpoint: .subscription, body: subscribeRequest)
     }
-    
+
     func sendEventRequest(event: Event) async throws {
         let eventRequest = EventRequest(newEventRequest: event)
         _ = try await sendRequest(endpoint: .event, body: eventRequest)
     }
-    
+
     func sendNotificationRequest(notification: Notification) async throws {
         let notificationRequest = NotificationRequest(notificationRequest: notification)
         _ = try await sendRequest(endpoint: .notification, body: notificationRequest)
