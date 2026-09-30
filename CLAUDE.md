@@ -45,7 +45,24 @@ xcodebuild -workspace .swiftpm/xcode/package.xcworkspace -scheme InngageSDK \
   -only-testing:InngageSDKTests/InngageSDKTests/testRegisterPropagatesError test
 ```
 
-Alternativa: abrir `../InngageSwiftSDK.xcworkspace` (contém o app `InngageSwift`, que referencia este package localmente) e usar o scheme `InngageSDK` no Xcode.
+Alternativa: abrir `../InngageSwiftSDK.xcworkspace` (contém o app `InngageSwift`, que referencia este package localmente) e usar o scheme `InngageSDK` no Xcode. **Atenção:** dentro do workspace do app o scheme `InngageSDK` não expõe o target `InngageSDKTests` — testes só rodam pelo `package.xcworkspace` acima ou abrindo o package diretamente.
+
+### Publicação no SPM (após merge em `release`; Estados 12–15 dos gates)
+
+```bash
+# 13. Promoção release -> main (PR + merge commit; cada passo com aprovação)
+gh pr create --base main --head release --title "release: X.Y.Z" --body-file <checklist>
+gh pr merge <n> --merge
+git fetch origin && git branch -f main origin/main
+
+# 14. Tag (sem prefixo "v", igual a InngageVersion.current) + GitHub Release, atomicamente
+gh release create X.Y.Z --target main --title "InngageSDK X.Y.Z" --notes-file <notas>
+
+# 15. Verificação: a versão resolve pelo SPM (package temporário; só `resolve`)
+swift package resolve   # em um Package.swift com .package(url: ..., exact: "X.Y.Z")
+```
+
+Ressalva: `swift package resolve` funciona no host macOS porque só resolve o grafo; `swift build`/`swift test` continuam **não** funcionando (UIKit).
 
 ### Ressalvas (verificadas)
 
@@ -132,7 +149,7 @@ Tudo o mais é `internal` — inclusive `EventService`, `NotificationService`, `
 - **Formato do payload de push/in-app** consumido por `handleNotificationInteraction` e `InngageInApp` (`notId`, `type` ∈ {`deep`, `inapp`}, `url`, `additional_data.rich_content`, `background_image`) é definido pela plataforma Inngage; tratar chaves ausentes de forma tolerante, nunca com crash.
 - **Chaves de `UserDefaults`** (`inngage.session.*`: `appToken`, `identifier`, `registration`, `anonymousId`, `blockDeepLink`) são persistidas no device do usuário final; renomear exige migração.
 - **Semântica do `blockDeepLink`** (`registerSubscriber`, default `false`): persistido na sessão; reflete sempre o **último** subscribe; quando `true`, `handleNotificationInteraction` não abre `deep` nem `inapp`, mas continua reportando a abertura (`notId`). Não afeta os botões das in-app messages.
-- **Versionamento:** SemVer. Mudança incompatível → major; API nova compatível → minor; correção → patch. Atualizar `InngageVersion.current` e a docc na mesma alteração.
+- **Versionamento:** SemVer. Mudança incompatível → major; API nova compatível → minor; correção → patch. Atualizar `InngageVersion.current` e a docc ("Versões") **no PR da demanda**. A versão publicada é a **tag `X.Y.Z` em `main`** (sem prefixo `v`, como `1.0.0`…`2.0.0`), sempre igual a `InngageVersion.current`; a publicação apenas etiqueta — nunca altera código. Tags publicadas são imutáveis (erro → novo patch).
 
 ## 5. Segurança e configuração
 
@@ -174,7 +191,8 @@ Alterações que toquem estes fluxos exigem testes direcionados e validação no
 - **Comentários e docs:** manter os comentários existentes que explicam decisões (identifier anônimo, persistência, isolamento). Atualizar a docc (`InngageSDK.docc/InngageSDK.md`) sempre que a API pública ou o fluxo de integração mudar.
 - **Testes:** XCTest, com dobles injetados pelos protocolos (`FailingAPIClient`, `CapturingAPIClient`) e `UserDefaults(suiteName:)` isolado por teste. Cada correção de bug ganha um teste que falharia antes. Não testar rede real.
 - **Git:** branches `feat/<slug>`, `fix/<slug>`, `chore/<slug>` a partir de `release` sincronizada; Conventional Commits (`feat(session): ...`, `fix(api): ...`, `test(orchestrator): ...`, `docs(claude): ...`, `chore(repo): ...`); `git add` com caminhos explícitos, nunca `git add .`; sem `--force`, sem amend/rebase/reset/stash automáticos. PRs de `<branch>` → `release` no GitHub.
-- **Estado atual do repositório (set/2026):** remote `origin` = `https://github.com/inngage/inngage-ios-swift`. A branch `release` (publicada) parte da tag `2.0.0` e contém as Rodadas 1 e 2 commitadas; é a base de todas as branches de trabalho e destino dos PRs. A branch `main` **local** (`Initial Commit`, sem pai) é um resíduo anterior à reconexão com o remoto — não usar como base; `origin/main` continua na tag `2.0.0` até o próximo release.
+- **Papéis das branches e tags:** `release` = integração (base de toda branch de trabalho e destino dos PRs de demanda; merge feito pelo usuário no GitHub). `main` = somente versões publicadas (recebe `release` por PR de promoção com merge commit). Tags `X.Y.Z` + GitHub Release em `main` = o que o SPM entrega aos integradores. Ver "Publicação no SPM" (seção 2) e Estados 12–15 dos gates.
+- **Estado atual do repositório (set/2026):** remote `origin` = `https://github.com/inngage/inngage-ios-swift`. `release` parte da tag `2.0.0`, contém as Rodadas 1 e 2 e o PR #1 (`blockDeepLink`, versão **2.1.0 — ainda não publicada**). `origin/main` continua na tag `2.0.0`. A branch `main` **local** (`Initial Commit`, sem pai) é um resíduo anterior à reconexão com o remoto — não usar como base; será realinhada a `origin/main` na primeira publicação (Estado 13).
 - **Limite de mudança:** alterar somente o que a demanda pede. Refatorações oportunistas e itens do backlog entram como demanda própria.
 - **Relação com o app de exemplo:** qualquer mudança de API pública exige atualizar `../InngageSwift` (que consome este package localmente) e confirmar que ele compila. O exemplo nunca é fonte de verdade da SDK.
 
@@ -182,12 +200,13 @@ Alterações que toquem estes fluxos exigem testes direcionados e validação no
 
 Toda história, bug, melhoria ou tarefa segue a skill **`iniciar-demanda`** (`.claude/skills/iniciar-demanda/SKILL.md`), que por sua vez usa:
 
-- `.claude/agents/approval-gates.md` — os 11 estados e o que cada aprovação autoriza (revisão → sincronizar `release` → criar branch → plano técnico → implementação → testes → validações → revisão/plano de commits → commits → push → PR);
-- `.claude/agents/output-templates.md` — formato do cabeçalho de estado, revisão consolidada, plano técnico, plano de commits e PR.
+- `.claude/agents/approval-gates.md` — os 15 estados e o que cada aprovação autoriza. Demanda (1–11): revisão → sincronizar `release` → criar branch → plano técnico → implementação → testes → validações → revisão/plano de commits → commits → push → PR. Publicação no SPM (12–15, fase separada acionada pelo usuário após o merge manual em `release`): pré-publicação → promoção `release`→`main` → tag + GitHub Release → verificação de consumo;
+- `.claude/agents/output-templates.md` — formato do cabeçalho de estado, revisão consolidada, plano técnico, plano de commits, PR, notas de release e checklist de publicação.
 
 Regras invariantes:
 
-- A mensagem inicial autoriza **apenas leitura e análise**. Nenhuma operação Git mutável, edição, criação de teste, execução de validação, commit, push ou PR sem a aprovação específica daquele gate.
+- A mensagem inicial autoriza **apenas leitura e análise**. Nenhuma operação Git mutável, edição, criação de teste, execução de validação, commit, push, PR, merge, tag ou release sem a aprovação específica daquele gate.
+- O merge do PR de demanda em `release` é **sempre ação humana** no GitHub; a publicação não edita código (bump e docc vêm no PR da demanda).
 - Toda resposta traz `Fase atual`, `Concluído` e `Aguardando aprovação` (uma única ação).
 - Uma aprovação libera só a próxima ação descrita; "ok" só vale com uma única ação pendente e identificada.
 - Mudança material de escopo → parar, explicar, voltar ao gate adequado.
@@ -208,6 +227,7 @@ Uma demanda só está pronta quando **todos** os itens abaixo forem verdadeiros 
 - [ ] Nenhum `print`, credencial, arquivo gerado (`.build/`, `xcuserdata/`, `.DS_Store`) ou arquivo fora do escopo no diff.
 - [ ] Commits no padrão Conventional Commits, cada um coerente e compilável; branch enviada sem force push; PR para `release` preparado com contexto, alterações, validação, riscos e checklist.
 - [ ] Este `CLAUDE.md` atualizado se a demanda mudou arquitetura, comandos, contrato ou fechou um item do backlog.
+- [ ] **Se a demanda incluir publicação (Estados 12–15):** `release` promovida a `main` por PR com merge commit; tag `X.Y.Z` = `InngageVersion.current` e GitHub Release criados; `swift package resolve` com `exact: "X.Y.Z"` bem-sucedido; "Checklist de publicação" entregue.
 
 ## 10. Backlog de melhorias (estrutural & arquitetura)
 
