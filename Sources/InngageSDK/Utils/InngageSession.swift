@@ -17,27 +17,39 @@ actor InngageSession {
         static let identifier = "inngage.session.identifier"
         static let registration = "inngage.session.registration"
         static let anonymousId = "inngage.session.anonymousId"
+        static let blockDeepLink = "inngage.session.blockDeepLink"
     }
 
     private(set) var appToken: String
     private(set) var identifier: String
     private(set) var registration: String
+    /// Quando `true`, `handleNotificationInteraction` não abre o link do push
+    /// (`deep`/`inapp`). Definido pelo integrador em `registerSubscriber`.
+    private(set) var blockDeepLink: Bool
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         self.appToken = defaults.string(forKey: Key.appToken) ?? ""
         self.identifier = defaults.string(forKey: Key.identifier) ?? ""
         self.registration = defaults.string(forKey: Key.registration) ?? ""
+        // `bool(forKey:)` devolve `false` quando a chave não existe — default seguro.
+        self.blockDeepLink = defaults.bool(forKey: Key.blockDeepLink)
     }
 
     /// Atualiza e persiste o estado da sessão.
-    func update(appToken: String, identifier: String, registration: String) {
+    ///
+    /// `blockDeepLink` é persistido junto porque o tap em push pode ocorrer em
+    /// cold start, antes de qualquer `registerSubscriber` da execução atual —
+    /// mantido só em memória, o bloqueio falharia exatamente nesse cenário.
+    func update(appToken: String, identifier: String, registration: String, blockDeepLink: Bool = false) {
         self.appToken = appToken
         self.identifier = identifier
         self.registration = registration
+        self.blockDeepLink = blockDeepLink
         defaults.set(appToken, forKey: Key.appToken)
         defaults.set(identifier, forKey: Key.identifier)
         defaults.set(registration, forKey: Key.registration)
+        defaults.set(blockDeepLink, forKey: Key.blockDeepLink)
     }
 
     /// Identifier anônimo estável — gerado uma única vez e persistido.

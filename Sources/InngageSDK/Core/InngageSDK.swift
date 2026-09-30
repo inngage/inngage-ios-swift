@@ -19,16 +19,23 @@ public class InngageSDK {
         email: String? = nil,
         phoneNumber: String? = nil,
         customFields: [String: Any]? = nil,
-        requestGeolocation: Bool = false
+        requestGeolocation: Bool = false,
+        blockDeepLink: Bool = false
     ) async throws {
         // O identifier é opcional para o integrador, mas a API de subscription
         // exige um valor: se não vier preenchido, cai no identifier anônimo estável.
         let identifier = await session.resolvedIdentifier(identifier)
 
         // Fonte única do estado da sessão — usada por sendEvent (fallback) e
-        // handleNotificationInteraction (reporte de abertura). Persistida para
-        // sobreviver ao cold start.
-        await session.update(appToken: appToken, identifier: identifier, registration: fcmToken)
+        // handleNotificationInteraction (reporte de abertura e bloqueio de link).
+        // Persistida para sobreviver ao cold start. `blockDeepLink` é sempre
+        // gravado: um subscribe posterior com `false` reverte o bloqueio.
+        await session.update(
+            appToken: appToken,
+            identifier: identifier,
+            registration: fcmToken,
+            blockDeepLink: blockDeepLink
+        )
 
         let input = SubscribeInput(
             appToken: appToken,
@@ -72,29 +79,31 @@ public class InngageSDK {
             )
         }
 
-        guard
-            let type = data["type"] as? String,
-            let urlString = data["url"] as? String,
-            let url = URL(string: urlString)
-        else {
-            InngageLogger.log("🔕 Sem URL ou tipo inválido no push")
-            return
-        }
+        // A decisão (inclusive o bloqueio via `blockDeepLink`) é tomada fora da
+        // main thread e sem UIKit; aqui só se executa a ação resolvida.
+        let action = NotificationLinkResolver.resolve(
+            type: data["type"] as? String,
+            urlString: data["url"] as? String,
+            blockDeepLink: await session.blockDeepLink
+        )
 
         DispatchQueue.main.async {
-            switch type {
-            case "deep":
+            switch action {
+            case .openExternal(let url):
                 UIApplication.shared.open(url, options: [:], completionHandler: nil)
 
-            case "inapp":
+            case .openInApp(let url):
                 if let topVC = UIApplication.shared.topViewController() {
                     let safariVC = SFSafariViewController(url: url)
                     safariVC.modalPresentationStyle = .formSheet
                     topVC.present(safariVC, animated: true, completion: nil)
                 }
 
-            default:
-                InngageLogger.log("⚠️ Tipo de navegação desconhecido: \(type)")
+            case .blocked:
+                InngageLogger.log("🔒 Tratamento de link bloqueado (blockDeepLink = true)")
+
+            case .none:
+                InngageLogger.log("🔕 Sem URL ou tipo inválido no push")
             }
         }
     }
