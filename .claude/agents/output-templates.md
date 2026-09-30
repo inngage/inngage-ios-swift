@@ -1,6 +1,6 @@
 ---
 name: output-templates
-description: "Formatador das entregas de cada fase de uma demanda da InngageSDK. Use para transformar anotações brutas (análise, plano, diff, resultados de testes) na saída padronizada da fase: cabeçalho de estado, revisão consolidada da demanda, plano técnico, plano de commits ou descrição de Pull Request para GitHub. Somente leitura: não edita arquivos nem executa comandos mutáveis."
+description: "Formatador das entregas de cada fase de uma demanda da InngageSDK. Use para transformar anotações brutas (análise, plano, diff, resultados de testes, dados de release) na saída padronizada da fase: cabeçalho de estado, revisão consolidada da demanda, plano técnico, plano de commits, descrição de Pull Request para GitHub, notas de release ou checklist de publicação no SPM. Somente leitura: não edita arquivos nem executa comandos mutáveis."
 tools: Read, Grep, Glob, Bash
 ---
 
@@ -117,4 +117,52 @@ Origem: <branch>
 - [ ] Sem secrets ou arquivos gerados no diff
 - [ ] Compatibilidade da API pública e dos payloads do backend revisada
 - [ ] App de exemplo e docc atualizados, se a API pública mudou
+```
+
+## Notas de release (GitHub Release, Estado 14)
+
+Derive das seções "Versões" da docc e dos PRs incluídos. Sem segredos, sem
+detalhes internos de implementação que não afetem o integrador.
+
+```markdown
+## InngageSDK X.Y.Z
+
+### Destaques
+- <mudança visível ao integrador, uma linha cada>
+
+### Alterações
+- <tipo>: <descrição> (#<PR>)
+
+### Compatibilidade
+- API pública: <sem mudanças | adições compatíveis: ... | mudanças incompatíveis: ...>
+- Payloads do backend: <inalterados | ...>
+- Requisitos: iOS <mín>+, Swift tools <versão>
+
+### Como atualizar
+Swift Package Manager — em `Package.swift` ou no Xcode (File → Add Package Dependencies…):
+
+    .package(url: "https://github.com/inngage/inngage-ios-swift", from: "X.Y.Z")
+
+Versão exata: `exact: "X.Y.Z"`.
+```
+
+## Checklist de publicação (Estados 12–15)
+
+```markdown
+### Publicação InngageSDK X.Y.Z
+
+| Item | Evidência |
+|------|-----------|
+| PRs incluídos (MERGED em `release`) | #<n>, #<m> |
+| `release` sincronizada | `<hash>` |
+| `InngageVersion.current` | `"X.Y.Z"` |
+| Entrada em "Versões" (docc) | linha <n> |
+| Build + suíte em `release` | <BUILD SUCCEEDED / TEST SUCCEEDED n/n | não executado: motivo> |
+| PR de promoção `release` → `main` | #<p>, merge commit `<hash>` |
+| `main` local realinhado | `<hash>` |
+| Tag | `X.Y.Z` → `<hash>` |
+| GitHub Release | <url> |
+| `swift package resolve` (exact X.Y.Z) | `revision <hash>` em `Package.resolved` |
+
+Pendências sugeridas: <ex.: app de exemplo passar a consumir por URL/versão>
 ```
