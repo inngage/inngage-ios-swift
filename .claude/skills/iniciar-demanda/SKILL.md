@@ -1,6 +1,6 @@
 ---
 name: iniciar-demanda
-description: "Conduz uma nova demanda de desenvolvimento na InngageSDK desde a análise e proposta de branch até testes, commits, push e Pull Request no GitHub, sempre com aprovação humana explícita entre as fases. Use quando o usuário apresentar uma história, tarefa, bug, correção, melhoria, implementação ou pedir para começar/planejar uma demanda, mesmo sem citar a skill."
+description: "Conduz uma nova demanda de desenvolvimento na InngageSDK desde a análise e proposta de branch até testes, commits, push e Pull Request no GitHub, e também a publicação de uma versão no Swift Package Manager (promoção release→main, tag e GitHub Release), sempre com aprovação humana explícita entre as fases. Use quando o usuário apresentar uma história, tarefa, bug, correção, melhoria, implementação, pedir para começar/planejar uma demanda ou pedir para publicar/lançar/taguear uma versão, mesmo sem citar a skill."
 ---
 
 # Iniciar demanda
@@ -84,7 +84,36 @@ conteúdo final não sustente.
   testes, riscos e checklist.
 - Use o `gh` CLI apenas se já estiver instalado e autenticado. Não instale, não
   autentique e não altere defaults sem aprovação.
-- Criar o PR não autoriza aprová-lo, fazer merge ou apagar branch.
+- Criar o PR não autoriza aprová-lo, fazer merge ou apagar branch. O merge do PR
+  em `release` é sempre ação do usuário no GitHub.
+
+## Publicar uma versão no SPM
+
+Publicação é uma fase **separada** da demanda, acionada quando o usuário pedir
+para publicar, lançar ou taguear uma versão ("publicar 2.1.0"). Siga os
+**Estados 12–15** de `.claude/agents/approval-gates.md`:
+
+12. **Pré-publicação** — evidências de leitura: PR(s) `MERGED` em `release`,
+    `release` sincronizada, `InngageVersion.current == X.Y.Z`, entrada em
+    "Versões" da docc, tag ainda inexistente, build e suíte verdes.
+13. **Promoção `release` → `main`** — PR no GitHub e merge com merge commit,
+    cada um com aprovação própria; realinhar `main` local.
+14. **Tag + GitHub Release** — `gh release create X.Y.Z --target main` com as
+    notas (template "Notas de release"). Tag sem prefixo `v`.
+15. **Verificação de consumo** — tag visível no remoto, Release criado e
+    `swift package resolve` de um package temporário com `exact: "X.Y.Z"`.
+
+Regras próprias desta fase:
+
+- Pré-condição absoluta: o bump de versão e a docc já vieram no PR da demanda.
+  Se faltarem, **não** edite nada aqui — abra uma demanda `fix/<slug>` pelo fluxo
+  normal e publique depois.
+- Uma publicação pode agrupar vários PRs mergeados em `release`; as notas de
+  release listam todos.
+- Tag e Release publicados são imutáveis: erro → novo patch. Nunca `--force`,
+  nunca apagar/mover tag.
+- Ao final, entregue o "Checklist de publicação" preenchido (template) e sugira
+  atualizar o app de exemplo para consumir por URL/versão, como demanda própria.
 
 ## Encerramento
 
