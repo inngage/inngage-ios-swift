@@ -107,6 +107,77 @@ final class InngageSDKTests: XCTestCase {
         XCTAssertEqual(registration, "fcm")
     }
 
+    // MARK: - blockDeepLink (sessão)
+
+    /// Sessão nova (chave ausente no `UserDefaults`) ⇒ bloqueio desligado.
+    func testBlockDeepLinkDefaultsToFalse() async {
+        let defaults = makeIsolatedDefaults("inngage.tests.block.default")
+        let session = InngageSession(defaults: defaults)
+        let blocked = await session.blockDeepLink
+        XCTAssertFalse(blocked)
+    }
+
+    /// `update(..., blockDeepLink: true)` persiste: nova instância sobre o mesmo
+    /// `UserDefaults` relê `true` (cold start). Um `update` posterior com `false`
+    /// reverte — a flag reflete sempre o último subscribe.
+    func testBlockDeepLinkPersistsAndCanBeReverted() async {
+        let defaults = makeIsolatedDefaults("inngage.tests.block.persist")
+        let session = InngageSession(defaults: defaults)
+
+        await session.update(appToken: "app", identifier: "u", registration: "fcm", blockDeepLink: true)
+        let reloadedBlocked = await InngageSession(defaults: defaults).blockDeepLink
+        XCTAssertTrue(reloadedBlocked)
+
+        await session.update(appToken: "app", identifier: "u", registration: "fcm", blockDeepLink: false)
+        let reloadedUnblocked = await InngageSession(defaults: defaults).blockDeepLink
+        XCTAssertFalse(reloadedUnblocked)
+    }
+
+    // MARK: - NotificationLinkResolver
+
+    /// Com a flag ligada, `deep` e `inapp` ⇒ `.blocked`: nenhum dos dois abre.
+    func testLinkResolverBlocksDeepAndInAppWhenFlagIsSet() {
+        let url = "https://example.com/promo"
+        XCTAssertEqual(
+            NotificationLinkResolver.resolve(type: "deep", urlString: url, blockDeepLink: true),
+            .blocked
+        )
+        XCTAssertEqual(
+            NotificationLinkResolver.resolve(type: "inapp", urlString: url, blockDeepLink: true),
+            .blocked
+        )
+    }
+
+    /// Flag desligada preserva o roteamento atual: `deep` ⇒ externo, `inapp` ⇒
+    /// webview interna; tipo desconhecido, URL ausente ou vazia ⇒ `.none`.
+    /// (Usa string vazia, e não "texto com espaços": desde o iOS 17 `URL(string:)`
+    /// percent-encoda entradas antes inválidas, o que tornaria o teste frágil.)
+    func testLinkResolverRoutesWhenNotBlocked() throws {
+        let urlString = "https://example.com/promo"
+        let url = try XCTUnwrap(URL(string: urlString))
+
+        XCTAssertEqual(
+            NotificationLinkResolver.resolve(type: "deep", urlString: urlString, blockDeepLink: false),
+            .openExternal(url)
+        )
+        XCTAssertEqual(
+            NotificationLinkResolver.resolve(type: "inapp", urlString: urlString, blockDeepLink: false),
+            .openInApp(url)
+        )
+        XCTAssertEqual(
+            NotificationLinkResolver.resolve(type: "unknown", urlString: urlString, blockDeepLink: false),
+            .none
+        )
+        XCTAssertEqual(
+            NotificationLinkResolver.resolve(type: "deep", urlString: nil, blockDeepLink: false),
+            .none
+        )
+        XCTAssertEqual(
+            NotificationLinkResolver.resolve(type: "deep", urlString: "", blockDeepLink: false),
+            .none
+        )
+    }
+
     /// Item 10: encoding de custom values continua correto após extrair o DynamicKey.
     func testEventEncodesCustomValues() throws {
         let event = Event(
